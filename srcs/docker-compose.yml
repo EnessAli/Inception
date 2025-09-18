@@ -1,0 +1,78 @@
+networks:
+  inception:
+    driver: bridge
+
+volumes:
+  wordpress_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/egermen/data/wordpress
+  mariadb_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/egermen/data/mariadb
+
+services:
+  mariadb:
+    build: ./requirements/mariadb
+    container_name: mariadb
+    image: mariadb:inception
+    restart: unless-stopped
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    networks:
+      - inception
+    secrets:
+      - credentials
+      - db_password
+      - db_root_password
+    env_file:
+      - .env
+    expose:
+      - "3306"
+
+  wordpress:
+    build: ./requirements/wordpress
+    container_name: wordpress
+    image: wordpress:inception
+    restart: unless-stopped
+    depends_on:
+      - mariadb
+    volumes:
+      - wordpress_data:/var/www/html
+    networks:
+      - inception
+    secrets:
+      - credentials
+      - db_password
+      - db_root_password
+    env_file:
+      - .env
+    expose:
+      - "9000"
+
+  nginx:
+    build: ./requirements/nginx
+    container_name: nginx
+    image: nginx:inception
+    restart: unless-stopped
+    depends_on:
+      - wordpress
+    ports:
+      - "443:443"
+    volumes:
+      - wordpress_data:/var/www/html
+    networks:
+      - inception
+
+secrets:
+  credentials:
+    file: ../secrets/credentials.txt
+  db_password:
+    file: ../secrets/db_password.txt
+  db_root_password:
+    file: ../secrets/db_root_password.txt
