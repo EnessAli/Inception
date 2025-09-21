@@ -21,7 +21,7 @@ services:
     build: ./requirements/mariadb
     container_name: mariadb
     image: mariadb:inception
-    restart: unless-stopped
+    restart: always
     volumes:
       - mariadb_data:/var/lib/mysql
     networks:
@@ -39,7 +39,7 @@ services:
     build: ./requirements/wordpress
     container_name: wordpress
     image: wordpress:inception
-    restart: unless-stopped
+    restart: always
     depends_on:
       - mariadb
     volumes:
@@ -59,7 +59,7 @@ services:
     build: ./requirements/nginx
     container_name: nginx
     image: nginx:inception
-    restart: unless-stopped
+    restart: always
     depends_on:
       - wordpress
     ports:
