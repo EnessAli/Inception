@@ -16,9 +16,9 @@ Kıdemli DevOps ve Backend eğitimi — Teori + Pratik + Alternatifler + Trouble
 
 #### Dockerfile Build Stratejisi
 ```dockerfile
-FROM debian:bullseye                    # Base: Debian 11
+FROM debian:bullseye                    # Temel imaj: Debian 11
 
-# Web Server Stack
+# Web Server Stack (Web Sunucu Yığını)
 RUN apt-get update && apt-get install -y \
   ## Performans İpuçları
 
@@ -27,9 +27,9 @@ RUN apt-get update && apt-get install -y \
 #### HTTP/2 ve Compression
 ```nginx
 server {
-    listen 443 ssl http2;           # Enable HTTP/2
+    listen 443 ssl http2;           # HTTP/2'yi etkinleştir
     
-    # Gzip compression
+    # Gzip sıkıştırma
     gzip on;
     gzip_vary on;
     gzip_min_length 1024;
@@ -43,7 +43,7 @@ server {
         application/json
         image/svg+xml;
     
-    # Brotli (modern browsers)
+    # Brotli (modern tarayıcılar için)
     brotli on;
     brotli_comp_level 6;
     brotli_types text/plain text/css application/json application/javascript;
@@ -52,7 +52,7 @@ server {
 
 #### Static File Caching
 ```nginx
-# Cache static assets
+# Statik dosyaları önbelleğe al
 location ~* \.(jpg|jpeg|png|gif|ico|css|js|woff2?)$ {
     expires 1y;
     add_header Cache-Control "public, immutable";
@@ -68,16 +68,16 @@ location = /robots.txt {
 
 #### FastCGI Cache
 ```nginx
-# FastCGI cache zone
+# FastCGI önbellek bölgesi
 fastcgi_cache_path /var/cache/nginx levels=1:2 keys_zone=WORDPRESS:100m inactive=60m;
 
 location ~ \.php$ {
-    # FastCGI cache
+    # FastCGI önbelleği
     fastcgi_cache WORDPRESS;
     fastcgi_cache_valid 200 60m;
     fastcgi_cache_key "$scheme$request_method$host$request_uri";
     
-    # Skip cache for logged in users
+    # Giriş yapmış kullanıcılar için önbelleği atla
     fastcgi_cache_bypass $http_cookie;
     fastcgi_no_cache $http_cookie;
 }
@@ -87,13 +87,13 @@ location ~ \.php$ {
 
 #### Process Manager Hesaplaması
 ```bash
-# Available memory check
+# Kullanılabilir bellek kontrolü
 free -m
 
-# CPU cores
+# CPU çekirdek sayısı
 nproc
 
-# Optimal max_children calculation
+# Optimal max_children hesaplaması
 # RAM için: (Available RAM * 0.8) / (Average PHP process size)
 # CPU için: CPU cores * 2-4
 
@@ -108,35 +108,35 @@ nproc
 ```ini
 [www]
 pm = dynamic
-pm.max_children = 8             # Calculated above
-pm.start_servers = 2            # 25% of max_children
-pm.min_spare_servers = 1        # 12.5% of max_children  
-pm.max_spare_servers = 4        # 50% of max_children
-pm.max_requests = 1000          # Worker restart (memory leak prevention)
+pm.max_children = 8             # Yukarıda hesaplanan değer
+pm.start_servers = 2            # max_children'ın %25'i
+pm.min_spare_servers = 1        # max_children'ın %12.5'i  
+pm.max_spare_servers = 4        # max_children'ın %50'si
+pm.max_requests = 1000          # Worker yeniden başlatma (bellek sızıntısı önleme)
 
-# Resource limits
+# Kaynak sınırları
 pm.process_idle_timeout = 30s
 request_terminate_timeout = 60s
 
-# Status page (monitoring)
+# Durum sayfası (izleme)
 pm.status_path = /php-fpm-status
 ```
 
 #### PHP INI Optimizasyonları
 ```ini
 # php.ini
-memory_limit = 256M             # Per-process memory limit
-max_execution_time = 300        # Script timeout
-upload_max_filesize = 64M       # File upload limit
-post_max_size = 64M             # POST data limit
+memory_limit = 256M             # İşlem başına bellek sınırı
+max_execution_time = 300        # Script zaman aşımı
+upload_max_filesize = 64M       # Dosya yükleme sınırı
+post_max_size = 64M             # POST veri sınırı
 
-# OpCache (PHP bytecode cache)
+# OpCache (PHP bytecode cache - PHP bayt kodu önbelleği)
 opcache.enable = 1
 opcache.memory_consumption = 128
 opcache.interned_strings_buffer = 8
 opcache.max_accelerated_files = 4000
 opcache.revalidate_freq = 60
-opcache.validate_timestamps = 0  # Production: disable for performance
+opcache.validate_timestamps = 0  # Production: performans için devre dışı bırak
 ```
 
 ### 🗄️ MariaDB Performance Tuning
@@ -145,45 +145,45 @@ opcache.validate_timestamps = 0  # Production: disable for performance
 ```ini
 # 50-server.cnf
 [mysqld]
-# Memory allocation (total RAM'in ~70%'i)
-innodb_buffer_pool_size = 1G    # Most important setting
-key_buffer_size = 32M           # MyISAM index cache
+# Bellek tahsisi (toplam RAM'in ~%70'i)
+innodb_buffer_pool_size = 1G    # En önemli ayar
+key_buffer_size = 32M           # MyISAM indeks önbelleği
 
-# Query cache
+# Sorgu önbelleği
 query_cache_type = 1
 query_cache_size = 64M
 query_cache_limit = 2M
 
-# Connection settings
+# Bağlantı ayarları
 max_connections = 100
 thread_cache_size = 16
 table_open_cache = 4000
 
-# InnoDB settings
-innodb_flush_log_at_trx_commit = 2  # Better performance, slight durability trade-off
+# InnoDB ayarları
+innodb_flush_log_at_trx_commit = 2  # Daha iyi performans, hafif dayanıklılık değişimi
 innodb_log_file_size = 256M
 innodb_log_buffer_size = 16M
 ```
 
 #### Slow Query Analysis
 ```sql
--- Enable slow query log
+-- Yavaş sorgu günlüğünü etkinleştir
 SET GLOBAL slow_query_log = 'ON';
 SET GLOBAL long_query_time = 2;
 
--- WordPress için yararlı indexler
+-- WordPress için yararlı indeksler
 ALTER TABLE wp_posts ADD INDEX idx_post_name (post_name);
 ALTER TABLE wp_posts ADD INDEX idx_post_parent (post_parent);
 ALTER TABLE wp_postmeta ADD INDEX idx_meta_key (meta_key);
 
--- Query analysis
+-- Sorgu analizi
 SHOW PROCESSLIST;
 EXPLAIN SELECT * FROM wp_posts WHERE post_status = 'publish';
 ```
 
 #### Performance Monitoring Queries
 ```sql
--- Table sizes
+-- Tablo boyutları
 SELECT 
     table_name AS "Table",
     round(((data_length + index_length) / 1024 / 1024), 2) AS "Size (MB)"
@@ -191,7 +191,7 @@ FROM information_schema.TABLES
 WHERE table_schema = "wordpress"
 ORDER BY (data_length + index_length) DESC;
 
--- Query cache hit ratio
+-- Sorgu önbelleği isabet oranı
 SHOW STATUS LIKE 'Qcache%';
 ```
 
@@ -222,26 +222,26 @@ define('WP_CACHE', true);
 # WP Super Cache
 wp plugin install wp-super-cache --activate --allow-root
 
-# W3 Total Cache (advanced)
+# W3 Total Cache (gelişmiş)
 wp plugin install w3-total-cache --activate --allow-root
 
-# Image optimization
+# Görsel optimizasyonu
 wp plugin install wp-smushit --activate --allow-root
 
-# Cache temizleme
+# Önbellek temizleme
 wp cache flush --allow-root
 ```
 
 #### Database Optimization
 ```bash
-# Database cleanup
+# Veritabanı temizliği
 wp plugin install wp-optimize --activate --allow-root
 
-# Manual optimization
+# Manuel optimizasyon
 wp db optimize --allow-root
 wp db repair --allow-root
 
-# Remove unused data
+# Kullanılmayan verileri kaldır
 wp post delete $(wp post list --post_status=trash --format=ids) --force --allow-root
 ```
 
@@ -255,10 +255,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'           # 1 CPU core
+          cpus: '1.0'           # 1 CPU çekirdeği
           memory: 512M          # 512MB RAM
         reservations:
-          cpus: '0.5'           # Minimum 0.5 core
+          cpus: '0.5'           # Minimum 0.5 çekirdek
           memory: 256M          # Minimum 256MB
   
   mariadb:
@@ -274,18 +274,18 @@ services:
 
 #### Performance Monitoring
 ```bash
-# Real-time resource usage
+# Gerçek zamanlı kaynak kullanımı
 docker stats
 
-# Container-specific stats
+# Container'a özel istatistikler
 docker exec wordpress cat /proc/meminfo | head -n 5
 docker exec wordpress cat /proc/loadavg
 
-# Disk usage
+# Disk kullanımı
 docker system df
 docker exec wordpress du -sh /var/www/html
 
-# Network traffic
+# Ağ trafiği
 docker exec nginx cat /proc/net/dev
 ```
 
@@ -293,42 +293,42 @@ docker exec nginx cat /proc/net/dev
 
 #### Benchmarking Tools
 ```bash
-# Apache Bench (simple load test)
+# Apache Bench (basit yük testi)
 ab -n 1000 -c 10 https://egermen.42.fr/
 
-# Siege (advanced load test)
+# Siege (gelişmiş yük testi)
 siege -c 20 -t 30s https://egermen.42.fr
 
 # GTmetrix / PageSpeed Insights
-# Online tools for detailed performance analysis
+# Detaylı performans analizi için çevrimiçi araçlar
 ```
 
 #### Doğrulama Komutları
 ```bash
-# NGINX config test
+# NGINX config test (NGINX yapılandırma testi)
 docker compose -f srcs/docker-compose.yml exec nginx nginx -T | head -n 50
 
-# PHP-FPM status
+# PHP-FPM status (PHP-FPM durumu)
 docker compose -f srcs/docker-compose.yml exec wordpress curl http://localhost:9000/php-fpm-status
 
-# MySQL performance
+# MySQL performance (MySQL performansı)
 docker compose -f srcs/docker-compose.yml exec mariadb mysql -e "SHOW STATUS LIKE 'Qcache%';"
 ```                           # HTTP server
-    openssl \                           # SSL/TLS certificate generation
+    openssl \                           # SSL/TLS sertifika üretimi
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Configuration & Scripts
-COPY conf/nginx.conf /etc/nginx/nginx.conf              # Main config
+# Configuration & Scripts (Yapılandırma ve Scriptler)
+COPY conf/nginx.conf /etc/nginx/nginx.conf              # Ana yapılandırma
 COPY tools/nginx_setup.sh /usr/local/bin/nginx_setup.sh
 RUN chmod +x /usr/local/bin/nginx_setup.sh
 
-# Runtime Directories
-RUN mkdir -p /etc/nginx/ssl \           # SSL certificates
-    && mkdir -p /var/www/html \         # Document root
+# Runtime Directories (Çalışma zamanı dizinleri)
+RUN mkdir -p /etc/nginx/ssl \           # SSL sertifikaları
+    && mkdir -p /var/www/html \         # Belge kök dizini
     && chown -R www-data:www-data /var/www/html
 
-EXPOSE 443                              # HTTPS port
+EXPOSE 443                              # HTTPS portu
 ENTRYPOINT ["/usr/local/bin/nginx_setup.sh"]
 ```
 
@@ -363,59 +363,59 @@ nginx_setup.sh Execution Flow:
 
 #### NGINX Konfigürasyon Anatomisi (`conf/nginx.conf`)
 ```nginx
-user www-data;                          # Worker process user
-worker_processes auto;                  # Auto-detect CPU cores
-pid /run/nginx.pid;                     # Process ID file
+user www-data;                          # Worker process kullanıcısı
+worker_processes auto;                  # CPU çekirdeklerini otomatik algıla
+pid /run/nginx.pid;                     # Process ID dosyası
 
 events {
-    worker_connections 1024;            # Max connections per worker
+    worker_connections 1024;            # Worker başına maksimum bağlantı
 }
 
 http {
-    # MIME Types & Basic Settings
+    # MIME Types & Basic Settings (MIME Türleri ve Temel Ayarlar)
     include /etc/nginx/mime.types;
     default_type application/octet-stream;
-    sendfile on;                        # Efficient file serving
-    tcp_nopush on;                      # Optimize network packets
-    keepalive_timeout 65;               # Connection reuse
-    server_tokens off;                  # Hide NGINX version (security)
+    sendfile on;                        # Verimli dosya sunumu
+    tcp_nopush on;                      # Ağ paketlerini optimize et
+    keepalive_timeout 65;               # Bağlantı yeniden kullanımı
+    server_tokens off;                  # NGINX sürümünü gizle (güvenlik)
 
-    # SSL/TLS Configuration
-    ssl_protocols TLSv1.2 TLSv1.3;      # Modern TLS only
-    ssl_prefer_server_ciphers on;       # Server cipher preference
+    # SSL/TLS Configuration (SSL/TLS Yapılandırması)
+    ssl_protocols TLSv1.2 TLSv1.3;      # Sadece modern TLS
+    ssl_prefer_server_ciphers on;       # Sunucu şifre tercihi
     
-    # Compression
-    gzip on;                            # Enable compression
+    # Compression (Sıkıştırma)
+    gzip on;                            # Sıkıştırmayı etkinleştir
 
     server {
-        # HTTPS Listener
+        # HTTPS Listener (HTTPS Dinleyicisi)
         listen 443 ssl http2;           # TLS + HTTP/2
-        listen [::]:443 ssl http2;      # IPv6 support
+        listen [::]:443 ssl http2;      # IPv6 desteği
         
-        server_name DOMAIN_NAME_PLACEHOLDER;  # Runtime replacement
+        server_name DOMAIN_NAME_PLACEHOLDER;  # Çalışma zamanı değişimi
         
-        # SSL Certificates (self-signed)
+        # SSL Certificates (self-signed) (SSL Sertifikaları - kendi imzalı)
         ssl_certificate /etc/nginx/ssl/inception.crt;
         ssl_certificate_key /etc/nginx/ssl/inception.key;
         
-        # Document Root
+        # Document Root (Belge Kök Dizini)
         root /var/www/html;
         index index.php index.html index.htm;
         
-        # WordPress Permalink Handling
+        # WordPress Permalink Handling (WordPress Kalıcı Bağlantı İşleme)
         location / {
             try_files $uri $uri/ /index.php?$query_string;
         }
         
-        # PHP Processing
+        # PHP Processing (PHP İşleme)
         location ~ \.php$ {
             include fastcgi_params;
-            fastcgi_pass wordpress:9000;        # Container-to-container communication
+            fastcgi_pass wordpress:9000;        # Container'dan container'a iletişim
             fastcgi_index index.php;
             fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
         }
         
-        # Security: Block hidden files
+        # Security: Block hidden files (Güvenlik: Gizli dosyaları engelle)
         location ~ /\. {
             deny all;
         }
@@ -613,20 +613,20 @@ flowchart TB
 7. Response chain: MariaDB → WordPress → NGINX → User
 ```
 
-**📁 Data Persistence:**
+**📁 Data Persistence (Veri Kalıcılığı):**
 ```
 Host System: /home/$USER/data/
-    ├── wordpress/              # WordPress files (HTML, PHP, uploads)
+    ├── wordpress/              # WordPress dosyaları (HTML, PHP, yüklemeler)
     │   ├── wp-content/
     │   ├── wp-config.php
     │   └── index.php
-    └── mariadb/                # Database files
+    └── mariadb/                # Veritabanı dosyaları
         ├── mysql/
-        ├── wordpress/          # WordPress database
+        ├── wordpress/          # WordPress veritabanı
         └── ibdata1
 ```
 
-**🔐 Secrets Mounting:**
+**🔐 Secrets Mounting (Gizli Bilgi Bağlama):**
 ```
 Host Files                     Container Mount Points
 secrets/db_root_password.txt → /run/secrets/db_root_password
@@ -760,27 +760,27 @@ Neden-böyle?
 
 #### Dockerfile Satır-Satır Analizi
 ```dockerfile
-FROM debian:bullseye                    # Base image: Debian 11 (stable)
+FROM debian:bullseye                    # Temel imaj: Debian 11 (kararlı)
 
-# Package installation layer
+# Package installation layer (Paket kurulum katmanı)
 RUN apt-get update && apt-get install -y \
-    mariadb-server \                    # MariaDB server daemon
-    mariadb-client \                    # MySQL client tools (mysqladmin, mysql)
-    && apt-get clean \                  # Clean package cache
-    && rm -rf /var/lib/apt/lists/*      # Remove package lists (reduce image size)
+    mariadb-server \                    # MariaDB sunucu daemon'u
+    mariadb-client \                    # MySQL istemci araçları (mysqladmin, mysql)
+    && apt-get clean \                  # Paket önbelleğini temizle
+    && rm -rf /var/lib/apt/lists/*      # Paket listelerini kaldır (imaj boyutunu küçült)
 
-# Configuration layer
-COPY conf/50-server.cnf /etc/mysql/mariadb.conf.d/50-server.cnf  # MySQL config
-COPY tools/mariadb_setup.sh /usr/local/bin/mariadb_setup.sh     # Setup script
-RUN chmod +x /usr/local/bin/mariadb_setup.sh                    # Make executable
+# Configuration layer (Yapılandırma katmanı)
+COPY conf/50-server.cnf /etc/mysql/mariadb.conf.d/50-server.cnf  # MySQL yapılandırması
+COPY tools/mariadb_setup.sh /usr/local/bin/mariadb_setup.sh     # Kurulum scripti
+RUN chmod +x /usr/local/bin/mariadb_setup.sh                    # Çalıştırılabilir yap
 
-# Runtime preparation layer
-RUN mkdir -p /run/mysqld \              # MySQL socket directory
-    && chown -R mysql:mysql /run/mysqld \  # MySQL user ownership
-    && chmod 755 /run/mysqld            # Directory permissions
+# Runtime preparation layer (Çalışma zamanı hazırlık katmanı)
+RUN mkdir -p /run/mysqld \              # MySQL socket dizini
+    && chown -R mysql:mysql /run/mysqld \  # MySQL kullanıcı sahipliği
+    && chmod 755 /run/mysqld            # Dizin izinleri
 
-EXPOSE 3306                             # MySQL standard port
-ENTRYPOINT ["/usr/local/bin/mariadb_setup.sh"]  # Container entry point
+EXPOSE 3306                             # MySQL standart portu
+ENTRYPOINT ["/usr/local/bin/mariadb_setup.sh"]  # Container giriş noktası
 ```
 
 #### Setup Script Akış Şeması
@@ -831,68 +831,68 @@ mariadb_setup.sh Execution Flow:
 #### MariaDB Konfigürasyon (`conf/50-server.cnf`)
 ```ini
 [mysqld]
-bind-address = 0.0.0.0          # Tüm network interface'lerden bağlantı kabul
-port = 3306                     # MySQL standard port
-socket = /run/mysqld/mysqld.sock # Unix socket path
-datadir = /var/lib/mysql        # Database files location
+bind-address = 0.0.0.0          # Tüm ağ arabirimlerinden bağlantı kabul et
+port = 3306                     # MySQL standart portu
+socket = /run/mysqld/mysqld.sock # Unix socket yolu
+datadir = /var/lib/mysql        # Veritabanı dosyaları konumu
 
-# Performance Tuning
-key_buffer_size = 16M           # MyISAM index cache
-max_allowed_packet = 16M        # Maximum packet size (large queries/data)
-thread_cache_size = 8           # Thread reuse (connection performance)
-query_cache_size = 16M          # Query result cache
-query_cache_limit = 1M          # Maximum cached query result size
+# Performance Tuning (Performans Ayarlama)
+key_buffer_size = 16M           # MyISAM indeks önbelleği
+max_allowed_packet = 16M        # Maksimum paket boyutu (büyük sorgular/veri)
+thread_cache_size = 8           # Thread yeniden kullanımı (bağlantı performansı)
+query_cache_size = 16M          # Sorgu sonucu önbelleği
+query_cache_limit = 1M          # Maksimum önbelleğe alınan sorgu sonucu boyutu
 
-# Logging
-general_log = 1                 # Enable query logging
+# Logging (Günlükleme)
+general_log = 1                 # Sorgu günlüğünü etkinleştir
 general_log_file = /var/log/mysql/mysql.log
-slow_query_log = 1              # Log slow queries (optional)
-long_query_time = 2             # Queries slower than 2 seconds
+slow_query_log = 1              # Yavaş sorguları günlükle (opsiyonel)
+long_query_time = 2             # 2 saniyeden yavaş sorgular
 
-# Security & Maintenance
-expire_logs_days = 10           # Auto-delete old binary logs
-max_binlog_size = 100M          # Binary log file size limit
+# Security & Maintenance (Güvenlik ve Bakım)
+expire_logs_days = 10           # Eski binary logları otomatik sil
+max_binlog_size = 100M          # Binary log dosya boyutu sınırı
 ```
 
 ### 🐘 WordPress (`requirements/wordpress`)
 
 #### Dockerfile Katman Analizi
 ```dockerfile
-FROM debian:bullseye                    # Base: Debian 11
+FROM debian:bullseye                    # Temel: Debian 11
 
-# PHP-FPM Stack Installation
+# PHP-FPM Stack Installation (PHP-FPM Yığın Kurulumu)
 RUN apt-get update && apt-get install -y \
     php7.4-fpm \                        # PHP FastCGI Process Manager
-    php7.4-mysql \                      # MySQL/MariaDB connectivity
-    php7.4-curl \                       # HTTP requests (WordPress core)
-    php7.4-gd \                         # Image processing (thumbnails)
-    php7.4-intl \                       # Internationalization
-    php7.4-mbstring \                   # Multi-byte string handling
-    php7.4-soap \                       # SOAP protocol support
-    php7.4-xml \                        # XML parsing
-    php7.4-xmlrpc \                     # XML-RPC support
-    php7.4-zip \                        # ZIP archive handling
-    wget \                              # File downloading
-    mariadb-client \                    # MySQL client tools
+    php7.4-mysql \                      # MySQL/MariaDB bağlantısı
+    php7.4-curl \                       # HTTP istekleri (WordPress çekirdeği)
+    php7.4-gd \                         # Görsel işleme (küçük resimler)
+    php7.4-intl \                       # Uluslararasılaştırma
+    php7.4-mbstring \                   # Çok baytlı string işleme
+    php7.4-soap \                       # SOAP protokol desteği
+    php7.4-xml \                        # XML ayrıştırma
+    php7.4-xmlrpc \                     # XML-RPC desteği
+    php7.4-zip \                        # ZIP arşiv işleme
+    wget \                              # Dosya indirme
+    mariadb-client \                    # MySQL istemci araçları
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# WP-CLI Installation
+# WP-CLI Installation (WP-CLI Kurulumu)
 RUN wget https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar \
     && chmod +x wp-cli.phar \
     && mv wp-cli.phar /usr/local/bin/wp
 
-# Configuration & Setup
-COPY conf/www.conf /etc/php/7.4/fpm/pool.d/www.conf      # PHP-FPM pool config
+# Configuration & Setup (Yapılandırma ve Kurulum)
+COPY conf/www.conf /etc/php/7.4/fpm/pool.d/www.conf      # PHP-FPM pool yapılandırması
 COPY tools/wordpress_setup.sh /usr/local/bin/wordpress_setup.sh
 RUN chmod +x /usr/local/bin/wordpress_setup.sh
 
-# Runtime Preparation
-RUN mkdir -p /var/www/html \            # WordPress document root
-    && mkdir -p /run/php \              # PHP-FPM runtime directory
-    && chown -R www-data:www-data /var/www/html  # Web server user ownership
+# Runtime Preparation (Çalışma Zamanı Hazırlığı)
+RUN mkdir -p /var/www/html \            # WordPress belge kök dizini
+    && mkdir -p /run/php \              # PHP-FPM çalışma zamanı dizini
+    && chown -R www-data:www-data /var/www/html  # Web sunucusu kullanıcı sahipliği
 
-EXPOSE 9000                             # PHP-FPM FastCGI port
+EXPOSE 9000                             # PHP-FPM FastCGI portu
 ENTRYPOINT ["/usr/local/bin/wordpress_setup.sh"]
 ```
 
@@ -948,25 +948,25 @@ wordpress_setup.sh Execution Flow:
 
 #### PHP-FPM Pool Konfigürasyonu (`conf/www.conf`)
 ```ini
-[www]                           # Pool name
-user = www-data                 # Process user
-group = www-data                # Process group
+[www]                           # Pool adı
+user = www-data                 # İşlem kullanıcısı
+group = www-data                # İşlem grubu
 
-listen = 9000                   # FastCGI listen port (container internal)
-listen.owner = www-data         # Socket ownership
+listen = 9000                   # FastCGI dinleme portu (container içi)
+listen.owner = www-data         # Socket sahipliği
 listen.group = www-data
-listen.mode = 0660              # Socket permissions
+listen.mode = 0660              # Socket izinleri
 
-# Process Manager Configuration
-pm = dynamic                    # Dynamic process scaling
-pm.max_children = 5             # Maximum worker processes
-pm.start_servers = 2            # Initial worker count
-pm.min_spare_servers = 1        # Minimum idle workers
-pm.max_spare_servers = 3        # Maximum idle workers
-pm.max_requests = 1000          # Worker restart after N requests (memory leak prevention)
+# Process Manager Configuration (İşlem Yöneticisi Yapılandırması)
+pm = dynamic                    # Dinamik işlem ölçeklendirme
+pm.max_children = 5             # Maksimum worker işlemleri
+pm.start_servers = 2            # Başlangıç worker sayısı
+pm.min_spare_servers = 1        # Minimum boşta worker'lar
+pm.max_spare_servers = 3        # Maksimum boşta worker'lar
+pm.max_requests = 1000          # N istekten sonra worker yeniden başlat (bellek sızıntısı önleme)
 
-# Environment
-clear_env = no                  # Keep environment variables
+# Environment (Ortam)
+clear_env = no                  # Ortam değişkenlerini koru
 ```
 
 ### NGINX (`requirements/nginx`)
@@ -1070,26 +1070,26 @@ services:
     secrets:
       - db_root_password
 
-# ❌ Güvensiz: Environment Variables  
+# ❌ Güvensiz: Environment Variables (Ortam Değişkenleri)
 services:
   mariadb:
     environment:
-      MYSQL_ROOT_PASSWORD: "plaintext_password"  # Logs'da görünür!
+      MYSQL_ROOT_PASSWORD: "plaintext_password"  # Günlüklerde görünür!
 ```
 
 #### NGINX Security Headers
 ```nginx
 server {
-    # Security headers
+    # Security headers (Güvenlik başlıkları)
     add_header X-Frame-Options DENY;
     add_header X-Content-Type-Options nosniff;
     add_header X-XSS-Protection "1; mode=block";
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains";
     
-    # Hide NGINX version
+    # Hide NGINX version (NGINX sürümünü gizle)
     server_tokens off;
     
-    # SSL Configuration  
+    # SSL Configuration (SSL Yapılandırması)
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_prefer_server_ciphers off;
 }
@@ -1097,12 +1097,12 @@ server {
 
 #### WordPress File Permissions
 ```bash
-# Optimal permission structure
-find /var/www/html -type d -exec chmod 755 {} \;      # Directories
-find /var/www/html -type f -exec chmod 644 {} \;      # Files
-chmod 600 /var/www/html/wp-config.php                 # Config file
+# Optimal permission structure (Optimal izin yapısı)
+find /var/www/html -type d -exec chmod 755 {} \;      # Dizinler
+find /var/www/html -type f -exec chmod 644 {} \;      # Dosyalar
+chmod 600 /var/www/html/wp-config.php                 # Yapılandırma dosyası
 
-# Sensitive files protection
+# Sensitive files protection (Hassas dosya koruması)
 location ~ /\.(ht|env|git) {
     deny all;
 }
@@ -1294,69 +1294,69 @@ Cevaplar: (1) Şablon vs çalışan örnek (2) Bind host path; bu projede bind (
 # Senaryo: WordPress yavaş yükleniyor
 # Görev: Performance bottleneck'i tespit et ve çöz
 
-# 1. Container resource kullanımını monitor et
+# 1. Container resource kullanımını izle
 docker stats
 
-# 2. NGINX access log'larını analiz et
+# 2. NGINX erişim günlüklerini analiz et
 docker compose -f srcs/docker-compose.yml logs nginx | tail -n 100
 
-# 3. MariaDB slow query log'unu kontrol et
+# 3. MariaDB yavaş sorgu günlüğünü kontrol et
 docker compose -f srcs/docker-compose.yml exec mariadb mysql -u root -p$(cat secrets/db_root_password.txt) -e "SHOW VARIABLES LIKE 'slow_query_log';"
 
 # 4. PHP-FPM process manager'ı optimize et
-# pm.max_children değerini CPU core sayısına göre ayarla
+# pm.max_children değerini CPU çekirdek sayısına göre ayarla
 ```
 
 #### Lab 2: Güvenlik Sertleştirme Görevi  
 ```bash
-# Senaryo: Production security audit başarısız
+# Senaryo: Production güvenlik denetimi başarısız
 # Görev: Güvenlik açıklarını kapatacak yapılandırma
 
-# 1. SSL configuration'ı güçlendir
-# nginx.conf'a security headers ekle:
+# 1. SSL yapılandırmasını güçlendir
+# nginx.conf'a güvenlik başlıkları ekle:
 # add_header X-Frame-Options "SAMEORIGIN";
 # add_header X-Content-Type-Options "nosniff";
 # add_header X-XSS-Protection "1; mode=block";
 
-# 2. MariaDB hardening
+# 2. MariaDB sertleştirme
 # Gerekli olmayan kullanıcıları sil
-# Root access'i localhost'a kısıtla
+# Root erişimini localhost'a kısıtla
 
-# 3. WordPress security plugins
-# Wordfence, Sucuri gibi plugins install et
+# 3. WordPress güvenlik eklentileri
+# Wordfence, Sucuri gibi eklentileri kur
 ```
 
 #### Lab 3: Yüksek Erişilebilirlik Kurulumu
 ```bash
-# Senaryo: Single point of failure eliminate et
-# Görev: Load balancer ve backup strategy implement et
+# Senaryo: Tek hata noktasını ortadan kaldır
+# Görev: Load balancer ve yedekleme stratejisi uygula
 
-# 1. NGINX load balancer config
+# 1. NGINX load balancer yapılandırması
 upstream wordpress_backend {
     server wordpress1:9000;
     server wordpress2:9000;
     server wordpress3:9000;
 }
 
-# 2. MariaDB Master-Slave replication
-# master-slave.cnf configuration
-# Binlog ve relay log setup
+# 2. MariaDB Master-Slave replikasyonu
+# master-slave.cnf yapılandırması
+# Binlog ve relay log kurulumu
 
-# 3. Shared storage setup (NFS/GlusterFS)
-# WordPress files distributed storage
+# 3. Paylaşımlı depolama kurulumu (NFS/GlusterFS)
+# WordPress dosyalarının dağıtık depolama
 ```
 
 #### Lab 4: İzleme Sistemi Kurulumu
 ```bash
-# Senaryo: Production monitoring eksik
-# Görev: Complete monitoring stack setup
+# Senaryo: Production izleme eksik
+# Görev: Tam izleme yığını kurulumu
 
-# 1. Prometheus + Grafana stack
+# 1. Prometheus + Grafana yığını
 docker run -d -p 9090:9090 prom/prometheus
 docker run -d -p 3000:3000 grafana/grafana
 
-# 2. NGINX exporter setup
-# nginx.conf'a stub_status location ekle
+# 2. NGINX exporter kurulumu
+# nginx.conf'a stub_status konumu ekle
 location /nginx_status {
     stub_status on;
     access_log off;
@@ -1364,8 +1364,8 @@ location /nginx_status {
     deny all;
 }
 
-# 3. Custom metrics (WordPress plugin count, active users)
-# wp-cli kullanarak metrics export
+# 3. Özel metrikler (WordPress eklenti sayısı, aktif kullanıcılar)
+# wp-cli kullanarak metrik dışa aktarma
 ```
 
 ### 🧠 Bilgi Testi
@@ -1440,46 +1440,46 @@ location /nginx_status {
 
 #### Egzersiz 1: Container Başlatılamıyor
 ```bash
-# Hata: nginx container sürekli restart oluyor
+# Hata: nginx container sürekli yeniden başlıyor
 # Debug adımları:
 1. docker compose logs nginx
-2. nginx -t configuration test
-3. Port conflict kontrolü
-4. File permission kontrolü
+2. nginx -t yapılandırma testi
+3. Port çakışması kontrolü
+4. Dosya izni kontrolü
 5. Secrets mount kontrolü
 ```
 
 #### Egzersiz 2: Database Bağlantı Hatası
 ```bash
-# Hata: WordPress database connection error
-# Debug checklist:
-1. MariaDB container status
-2. Network connectivity test (ping mariadb)
-3. Database credentials validation
-4. Port availability check (3306)
-5. MariaDB logs analysis
+# Hata: WordPress veritabanı bağlantı hatası
+# Debug kontrol listesi:
+1. MariaDB container durumu
+2. Ağ bağlantısı testi (ping mariadb)
+3. Veritabanı kimlik bilgileri doğrulama
+4. Port kullanılabilirlik kontrolü (3306)
+5. MariaDB günlük analizi
 ```
 
 #### Egzersiz 3: SSL Sertifika Sorunları
 ```bash
-# Hata: Browser "Not Secure" warning
-# Debug process:
-1. Certificate expiration check
-2. Certificate chain validation
-3. SSL configuration syntax
-4. Port 443 availability
-5. DNS resolution test
+# Hata: Tarayıcı "Güvenli Değil" uyarısı
+# Debug süreci:
+1. Sertifika sona erme kontrolü
+2. Sertifika zinciri doğrulama
+3. SSL yapılandırma söz dizimi
+4. Port 443 kullanılabilirlik
+5. DNS çözümleme testi
 ```
 
 #### Egzersiz 4: Performans Düşüşü
 ```bash
-# Hata: Site extremely slow response
-# Performance audit:
-1. Resource usage monitoring (docker stats)
-2. NGINX access log analysis
-3. MySQL slow query identification
-4. PHP-FPM pool status check
-5. Disk I/O and network bottlenecks
+# Hata: Site son derece yavaş yanıt veriyor
+# Performans denetimi:
+1. Kaynak kullanım izleme (docker stats)
+2. NGINX erişim günlüğü analizi
+3. MySQL yavaş sorgu tespiti
+4. PHP-FPM pool durum kontrolü
+5. Disk I/O ve ağ darboğazları
 ```
 
 ### 🏆 Sertifikasyon Görevi
@@ -1528,13 +1528,13 @@ location /nginx_status {
 # 1. Certbot kurulumu
 apt-get update && apt-get install -y certbot python3-certbot-nginx
 
-# 2. Domain-based certificate generation
+# 2. Domain tabanlı sertifika üretimi
 certbot --nginx -d egermen.42.fr -d www.egermen.42.fr
 
-# 3. Auto-renewal setup
+# 3. Otomatik yenileme kurulumu
 echo "0 12 * * * /usr/bin/certbot renew --quiet" | crontab -
 
-# 4. NGINX SSL configuration update
+# 4. NGINX SSL yapılandırma güncellemesi
 server {
     listen 443 ssl;
     ssl_certificate /etc/letsencrypt/live/egermen.42.fr/fullchain.pem;
@@ -1815,10 +1815,10 @@ DATE=$(date +%Y%m%d_%H%M%S)
 BACKUP_DIR="/opt/backups/database"
 DB_CONTAINER="inception_mariadb"
 
-# Create backup directory
+# Yedekleme dizini oluştur
 mkdir -p $BACKUP_DIR
 
-# Database dump with compression
+# Sıkıştırmalı veritabanı dökümü
 docker exec $DB_CONTAINER mysqldump \
   -u root -p$(cat /opt/inception/secrets/db_root_password.txt) \
   --all-databases \
@@ -1826,10 +1826,10 @@ docker exec $DB_CONTAINER mysqldump \
   --quick \
   --lock-tables=false | gzip > $BACKUP_DIR/backup_$DATE.sql.gz
 
-# Cleanup old backups (keep last 30 days)
+# Eski yedeklemeleri temizle (son 30 günü tut)
 find $BACKUP_DIR -name "backup_*.sql.gz" -mtime +30 -delete
 
-# Upload to S3 (optional)
+# S3'e yükle (opsiyonel)
 aws s3 cp $BACKUP_DIR/backup_$DATE.sql.gz s3://my-backup-bucket/database/
 
 echo "Database backup completed: backup_$DATE.sql.gz"
@@ -1846,13 +1846,13 @@ WP_DATA_DIR="/home/$USER/data/wordpress"
 
 mkdir -p $BACKUP_DIR
 
-# Create tar archive with compression
+# Sıkıştırmalı tar arşivi oluştur
 tar -czf $BACKUP_DIR/wordpress_files_$DATE.tar.gz -C $WP_DATA_DIR .
 
-# Sync to remote backup server
+# Uzak yedekleme sunucusuna senkronize et
 rsync -av $BACKUP_DIR/wordpress_files_$DATE.tar.gz backup-server:/backup/wordpress/
 
-# Cleanup local backups
+# Yerel yedeklemeleri temizle
 find $BACKUP_DIR -name "wordpress_files_*.tar.gz" -mtime +7 -delete
 
 echo "Files backup completed: wordpress_files_$DATE.tar.gz"
@@ -1860,15 +1860,15 @@ echo "Files backup completed: wordpress_files_$DATE.tar.gz"
 
 #### Cron ile Yedekleme Otomasyonu
 ```bash
-# Add to crontab: crontab -e
+# Add to crontab: crontab -e (crontab'a ekle: crontab -e)
 
-# Database backup every 6 hours
+# Her 6 saatte bir veritabanı yedeklemesi
 0 */6 * * * /opt/inception/backup/db_backup.sh >> /var/log/backup.log 2>&1
 
-# Files backup daily at 2 AM
+# Günlük dosya yedeklemesi sabah 2'de
 0 2 * * * /opt/inception/backup/files_backup.sh >> /var/log/backup.log 2>&1
 
-# System cleanup weekly
+# Haftalık sistem temizliği
 0 3 * * 0 docker system prune -f >> /var/log/cleanup.log 2>&1
 ```
 
@@ -1902,19 +1902,19 @@ services:
 
 #### NGINX Güvenlik Headers
 ```nginx
-# security/nginx.conf additions
+# security/nginx.conf eklemeleri
 server {
-    # Security headers
+    # Güvenlik başlıkları
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-XSS-Protection "1; mode=block" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';" always;
     
-    # Hide server version
+    # Sunucu sürümünü gizle
     server_tokens off;
     
-    # Rate limiting
+    # Hız sınırlama
     limit_req_zone $binary_remote_addr zone=wp_login:10m rate=1r/s;
     
     location = /wp-login.php {
@@ -1929,15 +1929,15 @@ server {
 
 #### WordPress Güvenlik Konfigürasyonu
 ```php
-// wp-config-security.php additions
+// wp-config-security.php eklemeleri
 
-// Hide WordPress version
+// WordPress sürümünü gizle
 remove_action('wp_head', 'wp_generator');
 
-// Disable file editing
+// Dosya düzenlemeyi devre dışı bırak
 define('DISALLOW_FILE_EDIT', true);
 
-// Security keys (use WordPress.org generator)
+// Güvenlik anahtarları (WordPress.org üretecini kullan)
 define('AUTH_KEY',         'your-unique-auth-key');
 define('SECURE_AUTH_KEY',  'your-unique-secure-auth-key');
 define('LOGGED_IN_KEY',    'your-unique-logged-in-key');
@@ -1947,16 +1947,16 @@ define('SECURE_AUTH_SALT', 'your-unique-secure-auth-salt');
 define('LOGGED_IN_SALT',   'your-unique-logged-in-salt');
 define('NONCE_SALT',       'your-unique-nonce-salt');
 
-// Database credentials
+// Veritabanı kimlik bilgileri
 define('DB_NAME', getenv('WORDPRESS_DB_NAME'));
 define('DB_USER', getenv('WORDPRESS_DB_USER'));
 define('DB_PASSWORD', getenv('WORDPRESS_DB_PASSWORD'));
 define('DB_HOST', getenv('WORDPRESS_DB_HOST'));
 
-// Force SSL
+// SSL zorla
 define('FORCE_SSL_ADMIN', true);
 
-// Increase memory limit
+// Bellek sınırını artır
 define('WP_MEMORY_LIMIT', '256M');
 ```
 
